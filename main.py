@@ -5,8 +5,8 @@ import torch
 import numpy as np
 
 from transformers import (
-    AutoProcessor,
-    AutoModelForMultimodalLM,
+    BlipProcessor,
+    BlipForConditionalGeneration,
     AutoTokenizer,
     VitsModel
 )
@@ -19,11 +19,11 @@ tts_model_path = "kakao-enterprise/vits-ljs"
 @st.cache_resource
 def load_models():
 
-    caption_processor = AutoProcessor.from_pretrained(
+    caption_processor = BlipProcessor.from_pretrained(
         model_path
     )
 
-    caption_model = AutoModelForMultimodalLM.from_pretrained(
+    caption_model = BlipForConditionalGeneration.from_pretrained(
         model_path
     )
 
@@ -93,15 +93,8 @@ def generate_audio(text):
 
 def caption_my_image(pil_image):
 
-    prompt = (
-        "Describe the people, important objects, "
-        "activities, food, drinks, and decorations "
-        "in this image."
-    )
-
     inputs = caption_processor(
         images=pil_image,
-        text=prompt,
         return_tensors="pt"
     )
 
@@ -109,26 +102,16 @@ def caption_my_image(pil_image):
 
         output = caption_model.generate(
             **inputs,
-            max_new_tokens=40,
+            max_length=40,
             num_beams=5,
             no_repeat_ngram_size=3,
             repetition_penalty=1.2,
             early_stopping=True
         )
 
-    caption = caption_processor.batch_decode(
-        output,
+    caption = caption_processor.decode(
+        output[0],
         skip_special_tokens=True
-    )[0].strip()
-
-    caption = caption.replace(
-        prompt,
-        ""
-    ).strip()
-
-    caption = caption.replace(
-        prompt.lower(),
-        ""
     ).strip()
 
     if not caption:
@@ -142,7 +125,10 @@ def caption_my_image(pil_image):
         caption
     )
 
-    return caption, audio
+    return (
+        caption,
+        audio
+    )
 
 
 st.set_page_config(
@@ -154,7 +140,7 @@ st.set_page_config(
 st.title("Image Captioning")
 
 st.write(
-    "Upload an image to generate a detailed caption "
+    "Upload an image to generate a caption "
     "and listen to the generated audio."
 )
 
