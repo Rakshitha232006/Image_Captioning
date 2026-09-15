@@ -7,3 +7,4 @@ tokenizers
 scipy
 pillow
 numpy
+phonemizer
