@@ -91,79 +91,17 @@ def generate_audio(text):
     return audio_bytes
 
 
-def clean_caption(caption):
-
-    caption = str(caption).strip()
-
-    unwanted_phrases = [
-        "describe this image.",
-        "describe this image",
-        "a picture of",
-        "an image of"
-    ]
-
-    for phrase in unwanted_phrases:
-
-        caption = caption.replace(
-            phrase,
-            ""
-        )
-
-    caption = " ".join(
-        caption.split()
-    )
-
-    words = caption.split()
-
-    cleaned_words = []
-
-    for word in words:
-
-        if len(cleaned_words) >= 2:
-
-            if (
-                word.lower()
-                == cleaned_words[-1].lower()
-            ):
-
-                continue
-
-            if (
-                word.lower()
-                == cleaned_words[-2].lower()
-            ):
-
-                continue
-
-        cleaned_words.append(word)
-
-    caption = " ".join(
-        cleaned_words
-    )
-
-    if caption:
-
-        caption = (
-            caption[0].upper()
-            + caption[1:]
-        )
-
-    if caption and caption[-1] not in ".!?":
-
-        caption += "."
-
-    return caption
-
-
 def caption_my_image(pil_image):
+
+    prompt = (
+        "Describe the people, important objects, "
+        "activities, food, drinks, and decorations "
+        "in this image."
+    )
 
     inputs = caption_processor(
         images=pil_image,
-        text=(
-            "Describe the people, important objects, "
-            "activities, food, drinks, and decorations "
-            "in this image."
-        ),
+        text=prompt,
         return_tensors="pt"
     )
 
@@ -171,7 +109,7 @@ def caption_my_image(pil_image):
 
         output = caption_model.generate(
             **inputs,
-            max_new_tokens=50,
+            max_new_tokens=40,
             num_beams=5,
             no_repeat_ngram_size=3,
             repetition_penalty=1.2,
@@ -181,11 +119,17 @@ def caption_my_image(pil_image):
     caption = caption_processor.batch_decode(
         output,
         skip_special_tokens=True
-    )[0]
+    )[0].strip()
 
-    caption = clean_caption(
-        caption
-    )
+    caption = caption.replace(
+        prompt,
+        ""
+    ).strip()
+
+    caption = caption.replace(
+        prompt.lower(),
+        ""
+    ).strip()
 
     if not caption:
 
@@ -198,10 +142,7 @@ def caption_my_image(pil_image):
         caption
     )
 
-    return (
-        caption,
-        audio
-    )
+    return caption, audio
 
 
 st.set_page_config(
