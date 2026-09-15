@@ -70,17 +70,25 @@ def generate_audio(text):
         dtype=np.float32
     )
 
-    return (
-        tts_model.config.sampling_rate,
-        audio
+    output_file = "output.wav"
+
+    wavfile.write(
+        output_file,
+        rate=tts_model.config.sampling_rate,
+        data=audio
     )
+
+    with open(output_file, "rb") as audio_file:
+        audio_bytes = audio_file.read()
+
+    return audio_bytes
 
 
 def caption_my_image(pil_image):
 
     inputs = caption_processor(
         images=pil_image,
-        text="Describe this image.",
+        text="",
         return_tensors="pt"
     )
 
@@ -88,7 +96,9 @@ def caption_my_image(pil_image):
 
         output = caption_model.generate(
             **inputs,
-            max_new_tokens=50
+            max_new_tokens=30,
+            num_beams=5,
+            early_stopping=True
         )
 
     caption = caption_processor.batch_decode(
@@ -96,15 +106,17 @@ def caption_my_image(pil_image):
         skip_special_tokens=True
     )[0].strip()
 
+    caption = caption.replace(
+        "Describe this image.",
+        ""
+    ).strip()
+
     if not caption:
         caption = "I could not generate a caption for this image."
 
-    sample_rate, audio = generate_audio(
-        caption
-    )
+    audio = generate_audio(caption)
 
-    return caption, (sample_rate, audio)
-
+    return caption, audio
 
 st.set_page_config(
     page_title="Image Captioning",
