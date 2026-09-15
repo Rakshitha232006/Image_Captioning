@@ -11,6 +11,7 @@ from transformers import (
     VitsModel
 )
 
+
 model_path = "Salesforce/blip-image-captioning-large"
 tts_model_path = "kakao-enterprise/vits-ljs"
 
@@ -52,6 +53,8 @@ def load_models():
 
 def generate_audio(text):
 
+    text = str(text).strip()
+
     inputs = tts_tokenizer(
         text,
         return_tensors="pt"
@@ -78,17 +81,89 @@ def generate_audio(text):
         data=audio
     )
 
-    with open(output_file, "rb") as audio_file:
+    with open(
+        output_file,
+        "rb"
+    ) as audio_file:
+
         audio_bytes = audio_file.read()
 
     return audio_bytes
+
+
+def clean_caption(caption):
+
+    caption = str(caption).strip()
+
+    unwanted_phrases = [
+        "describe this image.",
+        "describe this image",
+        "a picture of",
+        "an image of"
+    ]
+
+    for phrase in unwanted_phrases:
+
+        caption = caption.replace(
+            phrase,
+            ""
+        )
+
+    caption = " ".join(
+        caption.split()
+    )
+
+    words = caption.split()
+
+    cleaned_words = []
+
+    for word in words:
+
+        if len(cleaned_words) >= 2:
+
+            if (
+                word.lower()
+                == cleaned_words[-1].lower()
+            ):
+
+                continue
+
+            if (
+                word.lower()
+                == cleaned_words[-2].lower()
+            ):
+
+                continue
+
+        cleaned_words.append(word)
+
+    caption = " ".join(
+        cleaned_words
+    )
+
+    if caption:
+
+        caption = (
+            caption[0].upper()
+            + caption[1:]
+        )
+
+    if caption and caption[-1] not in ".!?":
+
+        caption += "."
+
+    return caption
 
 
 def caption_my_image(pil_image):
 
     inputs = caption_processor(
         images=pil_image,
-        text="",
+        text=(
+            "Describe the people, important objects, "
+            "activities, food, drinks, and decorations "
+            "in this image."
+        ),
         return_tensors="pt"
     )
 
@@ -96,27 +171,38 @@ def caption_my_image(pil_image):
 
         output = caption_model.generate(
             **inputs,
-            max_new_tokens=30,
+            max_new_tokens=50,
             num_beams=5,
+            no_repeat_ngram_size=3,
+            repetition_penalty=1.2,
             early_stopping=True
         )
 
     caption = caption_processor.batch_decode(
         output,
         skip_special_tokens=True
-    )[0].strip()
+    )[0]
 
-    caption = caption.replace(
-        "Describe this image.",
-        ""
-    ).strip()
+    caption = clean_caption(
+        caption
+    )
 
     if not caption:
-        caption = "I could not generate a caption for this image."
 
-    audio = generate_audio(caption)
+        caption = (
+            "I could not generate a caption "
+            "for this image."
+        )
 
-    return caption, audio
+    audio = generate_audio(
+        caption
+    )
+
+    return (
+        caption,
+        audio
+    )
+
 
 st.set_page_config(
     page_title="Image Captioning",
@@ -127,7 +213,7 @@ st.set_page_config(
 st.title("Image Captioning")
 
 st.write(
-    "Upload an image to generate a caption "
+    "Upload an image to generate a detailed caption "
     "and listen to the generated audio."
 )
 
